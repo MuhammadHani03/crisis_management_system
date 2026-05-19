@@ -1,51 +1,53 @@
 import os
-import google.generativeai as genai
 from dotenv import load_dotenv
+from groq import Groq
 
 load_dotenv()
 
-# Configure Gemini API
-API_KEY = os.getenv("GEMINI_API_KEY")
+# Configure Groq API
+# Note: The API key might be set in GROQ_API_KEY or stored under GEMINI_API_KEY in the .env file.
+API_KEY = os.getenv("GROQ_API_KEY") or os.getenv("GEMINI_API_KEY")
 
 if not API_KEY:
-    raise ValueError("GEMINI_API_KEY not found in .env file. LLM service cannot run.")
+    raise ValueError("Groq API key not found in .env file (looked for GROQ_API_KEY or GEMINI_API_KEY).")
 
-genai.configure(api_key=API_KEY)
-
-# Model (you can switch to gemini-1.5-flash if needed)
-model = genai.GenerativeModel("gemini-2.5-flash")
+client = Groq(api_key=API_KEY)
+MODEL_NAME = "llama-3.1-8b-instant"
 
 
 def call_llm(prompt: str, json_mode: bool = False) -> str:
     """
-    Calls Gemini and returns raw text output.
-    If json_mode=True, forces JSON-only response.
+    Calls Groq using llama-3.1-8b-instant and returns raw text output.
+    If json_mode=True, forces JSON-only response using response_format.
     """
 
     if json_mode:
         prompt += "\n\nReturn ONLY valid JSON. No markdown, no backticks, no extra text."
 
     try:
-        response = model.generate_content(prompt)
+        # Build chat completion arguments
+        kwargs = {
+            "model": MODEL_NAME,
+            "messages": [
+                {"role": "user", "content": prompt}
+            ],
+            "temperature": 0.1,
+        }
+        
+        if json_mode:
+            kwargs["response_format"] = {"type": "json_object"}
+
+        response = client.chat.completions.create(**kwargs)
 
         # DEBUG: always print raw response
-        print("\n========== GEMINI RAW RESPONSE ==========")
+        print("\n========== GROQ RAW RESPONSE ==========")
         print(response)
-        print("=========================================\n")
-
-        # Safety check: candidates must exist
-        if not hasattr(response, "candidates") or not response.candidates:
-            raise Exception("Gemini returned no candidates. Possible API/safety issue.")
+        print("=======================================\n")
 
         # Extract text safely
-        text = getattr(response, "text", None)
-
+        text = response.choices[0].message.content
         if text is None:
-            # fallback extraction (sometimes Gemini structure varies)
-            try:
-                text = response.candidates[0].content.parts[0].text
-            except Exception:
-                raise Exception("Could not extract text from Gemini response.")
+            raise Exception("Groq returned empty text content.")
 
         text = text.strip()
 
