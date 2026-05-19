@@ -1,7 +1,7 @@
 // Central API service for connecting to the FastAPI backend
 // Change BASE_URL to your deployed backend URL when hosting
 
-const BASE_URL = 'http://'; // Auto-detected local IP
+const BASE_URL = 'http:// 192.168.1.108'; // Auto-detected local IP
 
 export const api = {
   // Get all active incidents
